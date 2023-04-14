@@ -46,39 +46,37 @@ impl GameGrid {
     }
 
     fn update(&mut self) {
-        let mut new_grid = self.grid.clone();
+        let mut new_grid = self.grid;
 
         for (i, row) in self.grid.iter().enumerate() {
             for (j, &cell) in row.iter().enumerate() {
-                let mut live_neighbors = 0;
-
-                NEIGHBOR_OFFSETS.iter().for_each(|(x, y)| {
+                let live_neighbors = NEIGHBOR_OFFSETS.iter().fold(0, |acc, (x, y)| {
                     let x_index = i as i32 + x;
                     if x_index < 0 || x_index >= NUM_GRID_CELLS as i32 {
-                        return;
+                        return acc;
                     }
 
                     let y_index = j as i32 + y;
                     if y_index < 0 || y_index >= NUM_GRID_CELLS as i32 {
-                        return;
+                        return acc;
                     }
 
-                    self.grid.get(x_index as usize)
-                        .and_then(|r| r.get(y_index as usize)).map(|&c| {
+                    if let Some(&c) = self.grid.get(x_index as usize)
+                        .and_then(|r| r.get(y_index as usize)) {
                         if c {
-                            live_neighbors += 1;
+                            return acc + 1;
                         }
-                    });
+                    }
+
+                    acc
                 });
 
                 if cell {
-                    if live_neighbors < 2 || live_neighbors > 3 {
+                    if !(2..=3).contains(&live_neighbors) {
                         new_grid[i][j] = false;
                     }
-                } else {
-                    if live_neighbors == 3 {
-                        new_grid[i][j] = true;
-                    }
+                } else if live_neighbors == 3 {
+                    new_grid[i][j] = true;
                 }
             }
         }
