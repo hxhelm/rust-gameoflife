@@ -1,0 +1,136 @@
+use nannou::prelude::*;
+use rand::{thread_rng, Rng};
+
+const WINDOW_WIDTH: u32 = 800;
+const NUM_GRID_CELLS: u32 = 100;
+const FRAMES_PER_ITERATION: i32 = 15;
+const NEIGHBOR_OFFSETS: [(i32, i32); 8] = [
+    (-1, -1), (-1, 0), (-1, 1),
+    ( 0, -1),          ( 0, 1),
+    ( 1, -1), ( 1, 0), ( 1, 1),
+];
+
+fn main() {
+    nannou::app(model)
+        .update(update)
+        .simple_window(view)
+        .size(WINDOW_WIDTH, WINDOW_WIDTH)
+        .run();
+}
+
+struct Model {
+    passed_frames: i32,
+    iterations: i32,
+    game_grid: GameGrid,
+}
+
+struct GameGrid {
+    grid: [[bool; NUM_GRID_CELLS as usize]; NUM_GRID_CELLS as usize]
+}
+
+impl GameGrid {
+    fn new() -> Self {
+        let mut grid: [[bool; NUM_GRID_CELLS as usize]; NUM_GRID_CELLS as usize] =
+            [[false; NUM_GRID_CELLS as usize]; NUM_GRID_CELLS as usize];
+
+        for cell in grid.iter_mut().flat_map(|r| r.iter_mut()) {
+            let mut rng = thread_rng();
+            let state: bool = rng.gen();
+
+            *cell = state;
+        }
+
+        GameGrid {
+            grid,
+        }
+    }
+
+    fn update(&mut self) {
+        let mut new_grid = self.grid.clone();
+
+        for (i, row) in self.grid.iter().enumerate() {
+            for (j, &cell) in row.iter().enumerate() {
+                let mut live_neighbors = 0;
+
+                NEIGHBOR_OFFSETS.iter().for_each(|(x, y)| {
+                    let x_index = i as i32 + x;
+                    if x_index < 0 || x_index >= NUM_GRID_CELLS as i32 {
+                        return;
+                    }
+
+                    let y_index = j as i32 + y;
+                    if y_index < 0 || y_index >= NUM_GRID_CELLS as i32 {
+                        return;
+                    }
+
+                    self.grid.get(x_index as usize)
+                        .and_then(|r| r.get(y_index as usize)).map(|&c| {
+                        if c {
+                            live_neighbors += 1;
+                        }
+                    });
+                });
+
+                if cell {
+                    if live_neighbors < 2 || live_neighbors > 3 {
+                        new_grid[i][j] = false;
+                    }
+                } else {
+                    if live_neighbors == 3 {
+                        new_grid[i][j] = true;
+                    }
+                }
+            }
+        }
+
+        self.grid = new_grid;
+    }
+}
+
+fn model(_app: &App) -> Model {
+    Model {
+        passed_frames: 0,
+        iterations: 0,
+        game_grid: GameGrid::new(),
+    }
+}
+
+fn update(_app: &App, _model: &mut Model, _update: Update) {
+    _model.passed_frames = (_model.passed_frames + 1) % FRAMES_PER_ITERATION;
+
+    if _model.passed_frames == 0 {
+        _model.iterations += 1;
+        _model.game_grid.update();
+    }
+}
+
+fn view(app: &App, _model: &Model, frame: Frame){
+    let draw = app.draw();
+
+    for (i, row) in _model.game_grid.grid.iter().enumerate() {
+        for (j, &cell) in row.iter().enumerate() {
+            let color = match cell {
+                true => DARKSEAGREEN,
+                false => BLACK,
+            };
+
+            let grid_cells_f32 = NUM_GRID_CELLS as f32;
+            let offset = app.window_rect().w() / grid_cells_f32 / 2.0;
+            draw.rect()
+                .x_y(
+                    app.window_rect().left() + (i as f32 * app.window_rect().w() / grid_cells_f32) + offset,
+                    app.window_rect().top() - (j as f32 * app.window_rect().h() / grid_cells_f32) - offset
+                )
+                .w_h(
+                    app.window_rect().w() / grid_cells_f32,
+                    app.window_rect().h() / grid_cells_f32
+                )
+                .color(color);
+        }
+    }
+
+    draw.text(app.fps().floor().to_string().as_str())
+        .x_y(app.window_rect().left() + 10.0, app.window_rect().top() - 10.0);
+
+    draw.to_frame(app, &frame).unwrap();
+}
