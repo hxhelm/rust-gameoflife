@@ -104,6 +104,8 @@ fn update(_app: &App, _model: &mut Model, _update: Update) {
 
 fn view(app: &App, _model: &Model, frame: Frame){
     let draw = app.draw();
+    let cell_width  = app.window_rect().w() / NUM_GRID_CELLS as f32;
+    let cell_height = app.window_rect().h() / NUM_GRID_CELLS as f32;
 
     for (i, row) in _model.game_grid.grid.iter().enumerate() {
         for (j, &cell) in row.iter().enumerate() {
@@ -112,17 +114,12 @@ fn view(app: &App, _model: &Model, frame: Frame){
                 false => BLACK,
             };
 
-            let grid_cells_f32 = NUM_GRID_CELLS as f32;
-            let offset = app.window_rect().w() / grid_cells_f32 / 2.0;
             draw.rect()
                 .x_y(
-                    app.window_rect().left() + (i as f32 * app.window_rect().w() / grid_cells_f32) + offset,
-                    app.window_rect().top() - (j as f32 * app.window_rect().h() / grid_cells_f32) - offset
+                    app.window_rect().left() + (cell_width) * (i as f32 + 0.5),
+                    app.window_rect().top() - (cell_height) * (j as f32 + 0.5)
                 )
-                .w_h(
-                    app.window_rect().w() / grid_cells_f32,
-                    app.window_rect().h() / grid_cells_f32
-                )
+                .w_h(cell_width, cell_height)
                 .color(color);
         }
     }
