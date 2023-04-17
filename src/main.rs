@@ -2,8 +2,8 @@ use nannou::prelude::*;
 use rand::{thread_rng, Rng};
 
 const WINDOW_WIDTH: u32 = 800;
-const NUM_GRID_CELLS: u32 = 100;
-const FRAMES_PER_ITERATION: i32 = 15;
+const NUM_GRID_CELLS: u32 = 200;
+const FRAMES_PER_ITERATION: i32 = 5;
 const NEIGHBOR_OFFSETS: [(i32, i32); 8] = [
     (-1, -1), (-1, 0), (-1, 1),
     ( 0, -1),          ( 0, 1),
@@ -20,7 +20,6 @@ fn main() {
 
 struct Model {
     passed_frames: i32,
-    iterations: i32,
     game_grid: GameGrid,
 }
 
@@ -40,7 +39,7 @@ impl GameGrid {
             *cell = state;
         }
 
-        GameGrid {
+        Self {
             grid,
         }
     }
@@ -88,41 +87,39 @@ impl GameGrid {
 fn model(_app: &App) -> Model {
     Model {
         passed_frames: 0,
-        iterations: 0,
         game_grid: GameGrid::new(),
     }
 }
 
-fn update(_app: &App, _model: &mut Model, _update: Update) {
-    _model.passed_frames = (_model.passed_frames + 1) % FRAMES_PER_ITERATION;
+fn update(_app: &App, model: &mut Model, _update: Update) {
+    model.passed_frames = (model.passed_frames + 1) % FRAMES_PER_ITERATION;
 
-    if _model.passed_frames == 0 {
-        _model.iterations += 1;
-        _model.game_grid.update();
+    if model.passed_frames == 0 {
+        model.game_grid.update();
     }
 }
 
-fn view(app: &App, _model: &Model, frame: Frame){
+fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
+    let window_left = app.window_rect().left();
+    let window_top  = app.window_rect().top();
+
     let cell_width  = app.window_rect().w() / NUM_GRID_CELLS as f32;
     let cell_height = app.window_rect().h() / NUM_GRID_CELLS as f32;
 
-    for (i, row) in _model.game_grid.grid.iter().enumerate() {
-        for (j, &cell) in row.iter().enumerate() {
-            let color = match cell {
-                true => DARKSEAGREEN,
-                false => BLACK,
-            };
+    draw.background().color(BLACK);
 
+    model.game_grid.grid.iter().enumerate().for_each(|(i, row)| {
+        row.iter().enumerate().filter(|(_, &c)| c).for_each(|(j, _)| {
             draw.rect()
                 .x_y(
-                    app.window_rect().left() + (cell_width) * (i as f32 + 0.5),
-                    app.window_rect().top() - (cell_height) * (j as f32 + 0.5)
+                    (cell_width).mul_add(i as f32 + 0.5, window_left),
+                    (cell_height).mul_add(-(j as f32) + 0.5, window_top)
                 )
                 .w_h(cell_width, cell_height)
-                .color(color);
-        }
-    }
+                .color(DARKSEAGREEN);
+        });
+    });
 
     draw.text(app.fps().floor().to_string().as_str())
         .x_y(app.window_rect().left() + 10.0, app.window_rect().top() - 10.0);
