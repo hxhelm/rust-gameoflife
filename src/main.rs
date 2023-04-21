@@ -4,7 +4,7 @@ use nannou::state::Mouse;
 use rand::{thread_rng, Rng};
 
 const WINDOW_WIDTH: u32 = 800;
-const NUM_GRID_CELLS: u32 = 100;
+const NUM_GRID_CELLS: u16 = 100;
 const FRAMES_PER_ITERATION: i32 = 5;
 const NEIGHBOR_OFFSETS: [(i32, i32); 8] = [
     (-1, -1), (-1, 0), (-1, 1),
@@ -54,13 +54,13 @@ impl GameGrid {
         for (i, row) in self.grid.iter().enumerate() {
             for (j, &cell) in row.iter().enumerate() {
                 let live_neighbors = NEIGHBOR_OFFSETS.iter().fold(0, |acc, (x, y)| {
-                    let x_index = i as i32 + x;
-                    if x_index < 0 || x_index >= NUM_GRID_CELLS as i32 {
+                    let x_index = <i32 as NumCast>::from(i).unwrap() + x;
+                    if x_index < 0 || x_index >= <i32 as NumCast>::from(NUM_GRID_CELLS).unwrap() {
                         return acc;
                     }
 
-                    let y_index = j as i32 + y;
-                    if y_index < 0 || y_index >= NUM_GRID_CELLS as i32 {
+                    let y_index = <i32 as NumCast>::from(j).unwrap() + y;
+                    if y_index < 0 || y_index >= <i32 as NumCast>::from(NUM_GRID_CELLS).unwrap() {
                         return acc;
                     }
 
@@ -113,32 +113,29 @@ fn update(_app: &App, model: &mut Model, _update: Update) {
 }
 
 fn event(app: &App, model: &mut Model, event: Event) {
-    match event {
-        WindowEvent { simple: Some(window_event), .. } => match window_event {
-            KeyReleased(Key::R) => model.game_grid = GameGrid::new(),
-            KeyReleased(Key::Q) => app.quit(),
-            KeyReleased(Key::Space) => model.paused = !model.paused,
-            KeyReleased(Key::B) => {
-                model.game_grid.empty();
-                model.paused = true;
-            },
-            MousePressed(MouseButton::Left) => {
-                let (x, y) = get_grid_index_from_mouse_position(&app.mouse, &app.window_rect());
-                model.game_grid.change_cell_state(x, y);
-            },
-            _ => (),
+    if let WindowEvent { simple: Some(window_event), .. } = event { match window_event {
+        KeyReleased(Key::R) => model.game_grid = GameGrid::new(),
+        KeyReleased(Key::Q) => app.quit(),
+        KeyReleased(Key::Space) => model.paused = !model.paused,
+        KeyReleased(Key::B) => {
+            model.game_grid.empty();
+            model.paused = true;
         },
-        _ => {},
-    }
+        MousePressed(MouseButton::Left) => {
+            let (x, y) = get_grid_index_from_mouse_position(&app.mouse, &app.window_rect());
+            model.game_grid.change_cell_state(x, y);
+        },
+        _ => (),
+    }};
 }
 
 fn get_grid_index_from_mouse_position(mouse: &Mouse, window: &Rect) -> (usize, usize) {
     let pos = mouse.position();
 
-    let cell_x: f32 = (pos.x - window.left()) / (window.w() / NUM_GRID_CELLS as f32);
+    let cell_x: f32 = (pos.x - window.left()) / (window.w() / <f32 as NumCast>::from(NUM_GRID_CELLS).unwrap());
     let cell_x = cell_x.floor() as usize;
 
-    let cell_y: f32 = (window.top() - pos.y) / (window.h() / NUM_GRID_CELLS as f32);
+    let cell_y: f32 = (window.top() - pos.y) / (window.h() / <f32 as NumCast>::from(NUM_GRID_CELLS).unwrap());
     let cell_y = cell_y.floor() as usize;
 
     (cell_x, cell_y)
@@ -149,8 +146,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let window_left = app.window_rect().left();
     let window_top  = app.window_rect().top();
 
-    let cell_width  = app.window_rect().w() / NUM_GRID_CELLS as f32;
-    let cell_height = app.window_rect().h() / NUM_GRID_CELLS as f32;
+    let cell_width  = app.window_rect().w() / <f32 as NumCast>::from(NUM_GRID_CELLS).unwrap();
+    let cell_height = app.window_rect().h() / <f32 as NumCast>::from(NUM_GRID_CELLS).unwrap();
 
     draw.background().color(BLACK);
 
