@@ -1,8 +1,10 @@
 use nannou::prelude::*;
+use nannou::Event::WindowEvent;
+use nannou::state::Mouse;
 use rand::{thread_rng, Rng};
 
 const WINDOW_WIDTH: u32 = 800;
-const NUM_GRID_CELLS: u32 = 200;
+const NUM_GRID_CELLS: u32 = 100;
 const FRAMES_PER_ITERATION: i32 = 5;
 const NEIGHBOR_OFFSETS: [(i32, i32); 8] = [
     (-1, -1), (-1, 0), (-1, 1),
@@ -13,6 +15,7 @@ const NEIGHBOR_OFFSETS: [(i32, i32); 8] = [
 fn main() {
     nannou::app(model)
         .update(update)
+        .event(event)
         .simple_window(view)
         .size(WINDOW_WIDTH, WINDOW_WIDTH)
         .run();
@@ -20,6 +23,7 @@ fn main() {
 
 struct Model {
     passed_frames: i32,
+    paused: bool,
     game_grid: GameGrid,
 }
 
@@ -82,11 +86,20 @@ impl GameGrid {
 
         self.grid = new_grid;
     }
+
+    fn empty(&mut self) {
+        self.grid = [[false; NUM_GRID_CELLS as usize]; NUM_GRID_CELLS as usize];
+    }
+
+    fn change_cell_state(&mut self, x: usize, y: usize) {
+        self.grid[x][y] = !self.grid[x][y];
+    }
 }
 
 fn model(_app: &App) -> Model {
     Model {
         passed_frames: 0,
+        paused: false,
         game_grid: GameGrid::new(),
     }
 }
@@ -94,9 +107,41 @@ fn model(_app: &App) -> Model {
 fn update(_app: &App, model: &mut Model, _update: Update) {
     model.passed_frames = (model.passed_frames + 1) % FRAMES_PER_ITERATION;
 
-    if model.passed_frames == 0 {
+    if model.passed_frames == 0 && !model.paused {
         model.game_grid.update();
     }
+}
+
+fn event(app: &App, model: &mut Model, event: Event) {
+    match event {
+        WindowEvent { simple: Some(window_event), .. } => match window_event {
+            KeyReleased(Key::R) => model.game_grid = GameGrid::new(),
+            KeyReleased(Key::Q) => app.quit(),
+            KeyReleased(Key::Space) => model.paused = !model.paused,
+            KeyReleased(Key::B) => {
+                model.game_grid.empty();
+                model.paused = true;
+            },
+            MousePressed(MouseButton::Left) => {
+                let (x, y) = get_grid_index_from_mouse_position(&app.mouse, &app.window_rect());
+                model.game_grid.change_cell_state(x, y);
+            },
+            _ => (),
+        },
+        _ => {},
+    }
+}
+
+fn get_grid_index_from_mouse_position(mouse: &Mouse, window: &Rect) -> (usize, usize) {
+    let pos = mouse.position();
+
+    let cell_x: f32 = (pos.x - window.left()) / (window.w() / NUM_GRID_CELLS as f32);
+    let cell_x = cell_x.floor() as usize;
+
+    let cell_y: f32 = (window.top() - pos.y) / (window.h() / NUM_GRID_CELLS as f32);
+    let cell_y = cell_y.floor() as usize;
+
+    (cell_x, cell_y)
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
@@ -114,7 +159,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
             draw.rect()
                 .x_y(
                     (cell_width).mul_add(i as f32 + 0.5, window_left),
-                    (cell_height).mul_add(-(j as f32) + 0.5, window_top)
+                    (cell_height).mul_add(-(j as f32) - 0.5, window_top)
                 )
                 .w_h(cell_width, cell_height)
                 .color(DARKSEAGREEN);
