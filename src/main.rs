@@ -1,15 +1,19 @@
 use nannou::prelude::*;
-use nannou::Event::WindowEvent;
 use nannou::state::Mouse;
+use nannou::Event::WindowEvent;
 use rand::{thread_rng, Rng};
 
 const WINDOW_WIDTH: u32 = 800;
 const NUM_GRID_CELLS: u16 = 100;
-const FRAMES_PER_ITERATION: i32 = 5;
 const NEIGHBOR_OFFSETS: [(i32, i32); 8] = [
-    (-1, -1), (-1, 0), (-1, 1),
-    ( 0, -1),          ( 0, 1),
-    ( 1, -1), ( 1, 0), ( 1, 1),
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+    (0, -1),
+    (0, 1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
 ];
 
 fn main() {
@@ -21,14 +25,8 @@ fn main() {
         .run();
 }
 
-struct Model {
-    passed_frames: i32,
-    paused: bool,
-    game_grid: GameGrid,
-}
-
 struct GameGrid {
-    grid: [[bool; NUM_GRID_CELLS as usize]; NUM_GRID_CELLS as usize]
+    grid: [[bool; NUM_GRID_CELLS as usize]; NUM_GRID_CELLS as usize],
 }
 
 impl GameGrid {
@@ -43,9 +41,7 @@ impl GameGrid {
             *cell = state;
         }
 
-        Self {
-            grid,
-        }
+        Self { grid }
     }
 
     fn update(&mut self) {
@@ -64,8 +60,11 @@ impl GameGrid {
                         return acc;
                     }
 
-                    if let Some(&c) = self.grid.get(x_index as usize)
-                        .and_then(|r| r.get(y_index as usize)) {
+                    if let Some(&c) = self
+                        .grid
+                        .get(x_index as usize)
+                        .and_then(|r| r.get(y_index as usize))
+                    {
                         if c {
                             return acc + 1;
                         }
@@ -96,16 +95,24 @@ impl GameGrid {
     }
 }
 
+struct Model {
+    passed_frames: i32,
+    frames_per_iteration: i32,
+    paused: bool,
+    game_grid: GameGrid,
+}
+
 fn model(_app: &App) -> Model {
     Model {
         passed_frames: 0,
+        frames_per_iteration: 0,
         paused: false,
         game_grid: GameGrid::new(),
     }
 }
 
 fn update(_app: &App, model: &mut Model, _update: Update) {
-    model.passed_frames = (model.passed_frames + 1) % FRAMES_PER_ITERATION;
+    model.passed_frames = (model.passed_frames + 1) % model.frames_per_iteration;
 
     if model.passed_frames == 0 && !model.paused {
         model.game_grid.update();
@@ -113,29 +120,37 @@ fn update(_app: &App, model: &mut Model, _update: Update) {
 }
 
 fn event(app: &App, model: &mut Model, event: Event) {
-    if let WindowEvent { simple: Some(window_event), .. } = event { match window_event {
-        KeyReleased(Key::R) => model.game_grid = GameGrid::new(),
-        KeyReleased(Key::Q) => app.quit(),
-        KeyReleased(Key::Space) => model.paused = !model.paused,
-        KeyReleased(Key::B) => {
-            model.game_grid.empty();
-            model.paused = true;
-        },
-        MousePressed(MouseButton::Left) => {
-            let (x, y) = get_grid_index_from_mouse_position(&app.mouse, &app.window_rect());
-            model.game_grid.change_cell_state(x, y);
-        },
-        _ => (),
-    }};
+    if let WindowEvent {
+        simple: Some(window_event),
+        ..
+    } = event
+    {
+        match window_event {
+            KeyReleased(Key::R) => model.game_grid = GameGrid::new(),
+            KeyReleased(Key::Q) => app.quit(),
+            KeyReleased(Key::Space) => model.paused = !model.paused,
+            KeyReleased(Key::B) => {
+                model.game_grid.empty();
+                model.paused = true;
+            }
+            MousePressed(MouseButton::Left) => {
+                let (x, y) = get_grid_index_from_mouse_position(&app.mouse, &app.window_rect());
+                model.game_grid.change_cell_state(x, y);
+            }
+            _ => (),
+        }
+    };
 }
 
 fn get_grid_index_from_mouse_position(mouse: &Mouse, window: &Rect) -> (usize, usize) {
     let pos = mouse.position();
 
-    let cell_x: f32 = (pos.x - window.left()) / (window.w() / <f32 as NumCast>::from(NUM_GRID_CELLS).unwrap());
+    let cell_x: f32 =
+        (pos.x - window.left()) / (window.w() / <f32 as NumCast>::from(NUM_GRID_CELLS).unwrap());
     let cell_x = cell_x.floor() as usize;
 
-    let cell_y: f32 = (window.top() - pos.y) / (window.h() / <f32 as NumCast>::from(NUM_GRID_CELLS).unwrap());
+    let cell_y: f32 =
+        (window.top() - pos.y) / (window.h() / <f32 as NumCast>::from(NUM_GRID_CELLS).unwrap());
     let cell_y = cell_y.floor() as usize;
 
     (cell_x, cell_y)
@@ -144,27 +159,37 @@ fn get_grid_index_from_mouse_position(mouse: &Mouse, window: &Rect) -> (usize, u
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     let window_left = app.window_rect().left();
-    let window_top  = app.window_rect().top();
+    let window_top = app.window_rect().top();
 
-    let cell_width  = app.window_rect().w() / <f32 as NumCast>::from(NUM_GRID_CELLS).unwrap();
+    let cell_width = app.window_rect().w() / <f32 as NumCast>::from(NUM_GRID_CELLS).unwrap();
     let cell_height = app.window_rect().h() / <f32 as NumCast>::from(NUM_GRID_CELLS).unwrap();
 
     draw.background().color(BLACK);
 
-    model.game_grid.grid.iter().enumerate().for_each(|(i, row)| {
-        row.iter().enumerate().filter(|(_, &c)| c).for_each(|(j, _)| {
-            draw.rect()
-                .x_y(
-                    (cell_width).mul_add(i as f32 + 0.5, window_left),
-                    (cell_height).mul_add(-(j as f32) - 0.5, window_top)
-                )
-                .w_h(cell_width, cell_height)
-                .color(DARKSEAGREEN);
+    model
+        .game_grid
+        .grid
+        .iter()
+        .enumerate()
+        .for_each(|(i, row)| {
+            row.iter()
+                .enumerate()
+                .filter(|(_, &c)| c)
+                .for_each(|(j, _)| {
+                    draw.rect()
+                        .x_y(
+                            (cell_width).mul_add(i as f32 + 0.5, window_left),
+                            (cell_height).mul_add(-(j as f32) - 0.5, window_top),
+                        )
+                        .w_h(cell_width, cell_height)
+                        .color(DARKSEAGREEN);
+                });
         });
-    });
 
-    draw.text(app.fps().floor().to_string().as_str())
-        .x_y(app.window_rect().left() + 10.0, app.window_rect().top() - 10.0);
+    draw.text(app.fps().floor().to_string().as_str()).x_y(
+        app.window_rect().left() + 10.0,
+        app.window_rect().top() - 10.0,
+    );
 
     draw.to_frame(app, &frame).unwrap();
 }
