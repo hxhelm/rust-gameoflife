@@ -5,6 +5,9 @@ use rand::{thread_rng, Rng};
 
 const WINDOW_WIDTH: u32 = 800;
 const NUM_GRID_CELLS: u16 = 100;
+const FRAMES_PER_ITERATION_STEP: i32 = 5;
+const MIN_FRAMES_PER_ITERATION: i32 = 5;
+const MAX_FRAMES_PER_ITERATION: i32 = 120;
 const NEIGHBOR_OFFSETS: [(i32, i32); 8] = [
     (-1, -1),
     (-1, 0),
@@ -105,7 +108,7 @@ struct Model {
 fn model(_app: &App) -> Model {
     Model {
         passed_frames: 0,
-        frames_per_iteration: 0,
+        frames_per_iteration: MIN_FRAMES_PER_ITERATION,
         paused: false,
         game_grid: GameGrid::new(),
     }
@@ -126,13 +129,30 @@ fn event(app: &App, model: &mut Model, event: Event) {
     } = event
     {
         match window_event {
-            KeyReleased(Key::R) => model.game_grid = GameGrid::new(),
-            KeyReleased(Key::Q) => app.quit(),
-            KeyReleased(Key::Space) => model.paused = !model.paused,
-            KeyReleased(Key::B) => {
-                model.game_grid.empty();
-                model.paused = true;
-            }
+            KeyReleased(key) => match key {
+                Key::R => model.game_grid = GameGrid::new(),
+                Key::Q => app.quit(),
+                Key::Space => model.paused = !model.paused,
+                Key::B => {
+                    model.game_grid.empty();
+                    model.paused = true;
+                }
+                // for some fucking reason Plus is not recognized, Key8 is the plus button for me,
+                // so that will have to do for now
+                Key::Key8 => {
+                    model.frames_per_iteration = std::cmp::min(
+                        MAX_FRAMES_PER_ITERATION,
+                        model.frames_per_iteration + FRAMES_PER_ITERATION_STEP,
+                    );
+                }
+                Key::Minus => {
+                    model.frames_per_iteration = std::cmp::max(
+                        MIN_FRAMES_PER_ITERATION,
+                        model.frames_per_iteration - FRAMES_PER_ITERATION_STEP,
+                    );
+                }
+                _ => (),
+            },
             MousePressed(MouseButton::Left) => {
                 let (x, y) = get_grid_index_from_mouse_position(&app.mouse, &app.window_rect());
                 model.game_grid.change_cell_state(x, y);
@@ -156,6 +176,7 @@ fn get_grid_index_from_mouse_position(mouse: &Mouse, window: &Rect) -> (usize, u
     (cell_x, cell_y)
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     let window_left = app.window_rect().left();
