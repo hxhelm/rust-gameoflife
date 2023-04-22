@@ -37,14 +37,16 @@ impl GameGrid {
         let mut grid: [[bool; NUM_GRID_CELLS as usize]; NUM_GRID_CELLS as usize] =
             [[false; NUM_GRID_CELLS as usize]; NUM_GRID_CELLS as usize];
 
-        for cell in grid.iter_mut().flat_map(|r| r.iter_mut()) {
+        Self { grid }
+    }
+
+    fn randomize(&mut self) {
+        for cell in self.grid.iter_mut().flat_map(|r| r.iter_mut()) {
             let mut rng = thread_rng();
             let state: bool = rng.gen();
 
             *cell = state;
         }
-
-        Self { grid }
     }
 
     fn update(&mut self) {
@@ -130,7 +132,7 @@ fn event(app: &App, model: &mut Model, event: Event) {
     {
         match window_event {
             KeyReleased(key) => match key {
-                Key::R => model.game_grid = GameGrid::new(),
+                Key::R => model.game_grid.randomize(),
                 Key::Q => app.quit(),
                 Key::Space => model.paused = !model.paused,
                 Key::B => {
