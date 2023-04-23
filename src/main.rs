@@ -1,10 +1,12 @@
+use nannou::draw::primitive;
+use nannou::draw::properties::SetColor;
 use nannou::prelude::*;
 use nannou::state::Mouse;
 use nannou::Event::WindowEvent;
 use rand::{thread_rng, Rng};
 
 const WINDOW_WIDTH: u32 = 800;
-const NUM_GRID_CELLS: u16 = 100;
+const NUM_GRID_CELLS: u16 = 200;
 const FRAMES_PER_ITERATION_STEP: i32 = 5;
 const MIN_FRAMES_PER_ITERATION: i32 = 5;
 const MAX_FRAMES_PER_ITERATION: i32 = 120;
@@ -33,8 +35,8 @@ struct GameGrid {
 }
 
 impl GameGrid {
-    fn new() -> Self {
-        let mut grid: [[bool; NUM_GRID_CELLS as usize]; NUM_GRID_CELLS as usize] =
+    const fn new() -> Self {
+        let grid: [[bool; NUM_GRID_CELLS as usize]; NUM_GRID_CELLS as usize] =
             [[false; NUM_GRID_CELLS as usize]; NUM_GRID_CELLS as usize];
 
         Self { grid }
@@ -189,25 +191,35 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     draw.background().color(BLACK);
 
-    model
+    let rects: Vec<primitive::Rect> = model
         .game_grid
         .grid
         .iter()
         .enumerate()
-        .for_each(|(i, row)| {
+        .map(|(i, row)| {
             row.iter()
                 .enumerate()
                 .filter(|(_, &c)| c)
-                .for_each(|(j, _)| {
-                    draw.rect()
-                        .x_y(
-                            (cell_width).mul_add(i as f32 + 0.5, window_left),
-                            (cell_height).mul_add(-(j as f32) - 0.5, window_top),
-                        )
-                        .w_h(cell_width, cell_height)
-                        .color(DARKSEAGREEN);
-                });
-        });
+                .map(move |(j, _)| {
+                    let geometric_rect = Rect::from_x_y_w_h(
+                        (cell_width).mul_add(i as f32 + 0.5, window_left),
+                        (cell_height).mul_add(-(j as f32) - 0.5, window_top),
+                        cell_width,
+                        cell_height,
+                    );
+
+                    let rect = primitive::Rect::from(geometric_rect).color(DARKSEAGREEN);
+
+                    rect
+                })
+        })
+        .flat_map(|rect_row| Iterator::collect::<Vec<_>>(rect_row))
+        .collect();
+
+    // maybe instead of drawing individual rectangles, draw a single rectangle with a texture?
+    for rect in &rects {
+        draw.a(rect.clone());
+    }
 
     draw.text(app.fps().floor().to_string().as_str()).x_y(
         app.window_rect().left() + 10.0,
